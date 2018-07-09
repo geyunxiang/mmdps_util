@@ -28,6 +28,9 @@ def generate_net_heatmap(net, output_file, title):
 	plt.savefig(output_file)
 	plt.close()
 
+def getAllFCAtIdx(xidx, yidx, all_nets):
+	return [net.data[xidx, yidx] for net in all_nets]
+
 def getAllFCAtTick(xidx, yidx, all_nets, dynamicIncluded = False):
 	return [net.data[xidx, yidx] for net in all_nets]
 

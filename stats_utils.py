@@ -5,6 +5,23 @@ import numpy as np
 import scipy, scipy.stats
 from sklearn import svm
 
+def row_wise_ttest(net1, net2, sigLevel = 0.05):
+	"""
+	This function performs row-wise t-test on two nets.
+	The row, connections of one brain area, is considered to follow 
+	some distribution. The 2 'groups' here are one row in net1 and the same
+	row in net2.
+	Note: the auto-correlation term is removed
+	"""
+	sigRegion = np.zeros(net1.data.shape[0])
+	for rowIdx in range(net1.data.shape[0]):
+		row1 = np.delete(net1.data[rowIdx, :], rowIdx)
+		row2 = np.delete(net2.data[rowIdx, :], rowIdx)
+		t, p = twoSampleTTest(row1, row2)
+		if p < sigLevel:
+			sigRegion[rowIdx] = 1
+	return sigRegion
+
 def mean_confidence_interval(data, confidence = 0.95):
 	a = 1.0 * np.array(data)
 	n = len(a)

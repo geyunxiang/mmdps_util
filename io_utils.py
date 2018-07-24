@@ -5,7 +5,6 @@ import random
 
 from mmdps.proc import netattr, atlas
 from mmdps.util import loadsave
-from mmdps_old import brain_net
 
 def ungzip(fgz):
 	with gzip.open(fgz, 'rb') as fin,\

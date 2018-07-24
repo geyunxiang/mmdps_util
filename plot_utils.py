@@ -4,8 +4,6 @@ from scipy import stats
 import numpy as np
 import copy
 
-from mmdps_old.utils import io_utils
-
 def plot_heatmap_from_net(net, title, valuerange = (-1, 1)):
 	actual_plot_index = [i[0] for i in sorted(enumerate(net.template.ticks_to_plot_indexes(net.ticks)), key = lambda x:x[1])]
 	return plot_heatmap_order(net.net, net.template.ticks, actual_plot_index, title, valuerange)

@@ -5,9 +5,6 @@ import os, glob
 import numpy as np
 from matplotlib import pyplot as plt
 
-from mmdps_old import brain_template, brain_net
-from mmdps_old.utils import plot_utils, io_utils
-
 # dynamic related
 def filter_DFCs(raw_dfcs, template_dfcs):
 	"""

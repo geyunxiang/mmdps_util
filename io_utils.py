@@ -1,6 +1,7 @@
 import shutil
 import os
 import gzip
+import random
 
 from mmdps.proc import netattr, atlas
 from mmdps.util import loadsave
@@ -80,6 +81,66 @@ def loadSpecificNets(boldPath, atlasobj, timeCase = 1, subjectList = None):
 				print('File %s not found.' % os.path.join(boldPath, scan, atlasobj.name, 'bold_net', 'corrcoef.csv'))
 				print(e)
 	return ret
+
+def loadRandomDynamicNets(boldPath, atlasobj, totalNum = 0, scanList = None):
+	"""
+	This function is used to randomly load the dynamic nets of subjects.
+	Specify how many nets in total you would like to get in totalNum.
+	Specify which scans to load as a list of strings or a file path in scanList.
+	Logic: Randomly load one dynamic net for each scan (make sure not repeat).
+		   If the total number is enough, randomly shuffle and return.
+		   If not, continue load one more dynamic net.
+	"""
+	if type(scanList) is str:
+		# read in scanList
+		with open(scanList) as f:
+			scanList = []
+			for line in f.readlines():
+				scanList.append(line.strip())
+	elif type(scanList) is list:
+		pass
+	ret = {}
+	scanName = 'None'
+	lastScanName = 'Unknown'
+	iterationCounter = 0 # counter for total iteration, equals num of dynamic nets of each scan in ret
+	while len(ret) * iterationCounter < totalNum:
+		iterationCounter += 1
+		for scanName in sorted(os.listdir(boldPath)):
+			if scanName != lastScanName:
+				occurrenceCounter = 0
+				lastScanName = scanName
+			occurrenceCounter += 1
+			if scanList is not None and scanName not in scanList:
+				continue
+			# randomly load one dynamic net in this subject
+			if scanName not in ret:
+					ret[scanName] = []
+			else:
+				pass
+			try:
+				# randomly search for one non-in net
+				dynamicList = sorted(os.listdir(os.path.join(boldPath, scanName, atlasobj.name, 'bold_net')))
+				dynamicList.remove('corrcoef.csv')
+				dynamicList.remove('timeseries.csv')
+				flag = True
+				while flag:
+					flag = False
+					# get a random
+					idx = random.randint(0, len(dynamicList)-1)
+					for net in ret[scanName]:
+						if net.name == dynamicList[idx]:
+							flag = True
+							break
+				ret[scanName].append(netattr.Net(loadsave.load_csvmat(os.path.join(boldPath, scanName, atlasobj.name, 'bold_net', dynamicList[idx])), atlasobj, name = dynamicList[idx]))
+			except FileNotFoundError as e:
+				print('File %s not found.' % os.path.join(boldPath, scanName, atlasobj.name, 'bold_net', 'corrcoef.csv'))
+				print(e)
+	# convert ret to list
+	retList = []
+	for key, value in ret.items():
+		retList += value
+	random.shuffle(retList)
+	return retList[:totalNum]
 
 def loadAllNets(boldPath, atlasobj, scanList = None):
 	"""

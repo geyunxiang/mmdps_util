@@ -56,6 +56,16 @@ def filter_sigdiff_connections(netListA, netListB, sigLevel = 0.05):
 	print('SigDiff connections: %d. Discover rate: %1.4f with sigLevel: %1.4f' % (len(ret), float(len(ret))/totalTests, sigLevel))
 	return ret
 
+def filter_sigdiff_connections_Bonferroni(netListA, netListB, sigLevel = 0.05):
+	"""
+	This function takes in two lists of networks, perform 2 sample t-test on each
+	connections with Bonferroni correction (divide alpha by the number of tests).
+	Specify the overall significance level in sigLevel
+	"""
+	region_num = netListA[0].atlasobj.count
+	test_num = region_num*(region_num - 1)/2
+	return filter_sigdiff_connections(netListA, netListB, float(sigLevel)/test_num)
+
 def filter_sigdiff_connections_old(netListA, netListB, sigLevel = 0.05):
 	"""
 	this function takes in two lists of networks, perform 2 sample t-test on each 

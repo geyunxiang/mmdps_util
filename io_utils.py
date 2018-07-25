@@ -86,10 +86,12 @@ def loadRandomDynamicNets(boldPath, atlasobj, totalNum = 0, scanList = None):
 	This function is used to randomly load the dynamic nets of subjects.
 	Specify how many nets in total you would like to get in totalNum.
 	Specify which scans to load as a list of strings or a file path in scanList.
-	Logic: Randomly load one dynamic net for each scan (make sure not repeat).
-		   If the total number is enough, randomly shuffle and return.
+	Logic: Randomly load one dynamic net for each scan (make sure not repeat) and add it.
+		   If the total number is enough, return.
 		   If not, continue load one more dynamic net.
 	"""
+	retList = []
+	# read in scan list
 	if type(scanList) is str:
 		# read in scanList
 		with open(scanList) as f:
@@ -102,8 +104,9 @@ def loadRandomDynamicNets(boldPath, atlasobj, totalNum = 0, scanList = None):
 	scanName = 'None'
 	lastScanName = 'Unknown'
 	iterationCounter = 0 # counter for total iteration, equals num of dynamic nets of each scan in ret
-	while len(ret) * iterationCounter < totalNum:
+	while len(retList) < totalNum:
 		iterationCounter += 1
+		currentList = []
 		for scanName in sorted(os.listdir(boldPath)):
 			if scanName != lastScanName:
 				occurrenceCounter = 0
@@ -131,15 +134,19 @@ def loadRandomDynamicNets(boldPath, atlasobj, totalNum = 0, scanList = None):
 							flag = True
 							break
 				ret[scanName].append(netattr.Net(loadsave.load_csvmat(os.path.join(boldPath, scanName, atlasobj.name, 'bold_net', dynamicList[idx])), atlasobj, name = dynamicList[idx]))
+				currentList.append(netattr.Net(loadsave.load_csvmat(os.path.join(boldPath, scanName, atlasobj.name, 'bold_net', dynamicList[idx])), atlasobj, name = dynamicList[idx]))
 			except FileNotFoundError as e:
 				print('File %s not found.' % os.path.join(boldPath, scanName, atlasobj.name, 'bold_net', 'corrcoef.csv'))
 				print(e)
-	# convert ret to list
-	retList = []
-	for key, value in ret.items():
-		retList += value
-	random.shuffle(retList)
-	return retList[:totalNum]
+		# check if we add all these people in, the total amount would exceed
+		if len(currentList) + len(retList) > totalNum:
+			# only add some people in
+			random.shuffle(currentList)
+			retList += currentList[:(totalNum - len(retList))]
+		else:
+			# add all people in
+			retList += currentList
+	return retList
 
 def loadAllNets(boldPath, atlasobj, scanList = None):
 	"""

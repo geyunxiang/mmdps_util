@@ -11,37 +11,59 @@ def ungzip(fgz):
 		 open(fgz[:-3], 'wb') as fout:
 		shutil.copyfileobj(fin, fout)
 
-def loadAllTemporalNets(boldPath, totalTimeCase, atlasobj, subjectList = None):
+def process_subject_list(subjectList):
+	"""
+	This helper function decides whether the input list is a string
+	It reads in names from the file specified by the string
+	or just returns if the argument is already a list
+	"""
+	ret = None
+	if type(subjectList) is str:
+		ret = []
+		# read in subjectList
+		with open(subjectList) as f:
+			for line in f.readlines():
+				ret.append(line.strip())
+	elif type(subjectList) is list:
+		ret = subjectList
+	return ret
+
+def loadAllTemporalNets(boldPath, totalTimeCase, atlasobj, subjectList = None, specificTime = None):
 	"""
 	This function is used to load temporal scans. All person with up
 	to totalTimeCase number of scans will be loaded and returned in a dict. 
 	The key of the dict is the subject name.
 	Each element in the dict is the temporal scans of one person. The data are stored
 	as a list of BrainNet.
+	Parameters:
+		- subjectList: a list of strs or a path to a text file
+		- specificTime: a dict, with key = subject name, value = [timeStr1, timeStr2, ...]
+				The length of value should equal to totalTimeCase
 	"""
-	if type(subjectList) is str:
-		# read in subjectList
-		with open(subjectList) as f:
-			subjectList = []
-			for line in f.readlines():
-				subjectList.append(line.strip())
+	subjectList = process_subject_list(subjectList)
 	ret = {}
 	currentPersonScans = []
+	currentPersonTime = []
 	subjectName = 'None'
 	lastSubjectName = 'Unknown'
 	occurrenceCounter = 0
 	for scan in sorted(os.listdir(boldPath)):
 		subjectName = scan[:scan.find('_')]
-		if subjectList is not None and subjectName not in subjectList:
-			continue
 		if subjectName != lastSubjectName:
 			if occurrenceCounter >= totalTimeCase:
-				ret[lastSubjectName] = currentPersonScans[:totalTimeCase]
+				if specificTime is not None and lastSubjectName in specificTime:
+					ret[lastSubjectName] = [currentPersonScans[currentPersonTime.index(timeStr)] for timeStr in specificTime[lastSubjectName]]
+				else:
+					ret[lastSubjectName] = currentPersonScans[:totalTimeCase]
 			occurrenceCounter = 0
 			lastSubjectName = subjectName
 			currentPersonScans = []
+			currentPersonTime = []
+		if subjectList is not None and subjectName not in subjectList:
+			continue
 		occurrenceCounter += 1
 		currentPersonScans.append(netattr.Net(loadsave.load_csvmat(os.path.join(boldPath, scan, atlasobj.name, 'bold_net', 'corrcoef.csv')), atlasobj))
+		currentPersonTime.append(scan[scan.find('_')+1:])
 	return ret
 
 def loadSpecificNets(boldPath, atlasobj, timeCase = 1, subjectList = None):
@@ -51,14 +73,7 @@ def loadSpecificNets(boldPath, atlasobj, timeCase = 1, subjectList = None):
 	Specify which subjects to load as a list of strings or a file path in subjectList.
 	If no subjectList is given, load all scans.
 	"""
-	if type(subjectList) is str:
-		# read in subjectList
-		with open(subjectList) as f:
-			subjectList = []
-			for line in f.readlines():
-				subjectList.append(line.strip())
-	elif type(subjectList) is list:
-		pass
+	subjectList = process_subject_list(subjectList)
 	ret = []
 	subjectName = 'None'
 	lastSubjectName = 'Unknown'
@@ -75,9 +90,9 @@ def loadSpecificNets(boldPath, atlasobj, timeCase = 1, subjectList = None):
 			continue
 		if occurrenceCounter == timeCase:
 			try:
-				ret.append(netattr.Net(loadsave.load_csvmat(os.path.join(boldPath, scan, atlasobj.name, 'bold_net', 'corrcoef.csv')), atlasobj))
+				ret.append(netattr.Net(loadsave.load_csvmat(os.path.join(boldPath, scan, atlasobj.name, 'bold_net.csv')), atlasobj))
 			except FileNotFoundError as e:
-				print('File %s not found.' % os.path.join(boldPath, scan, atlasobj.name, 'bold_net', 'corrcoef.csv'))
+				print('File %s not found.' % os.path.join(boldPath, scan, atlasobj.name, 'bold_net.csv'))
 				print(e)
 	return ret
 
@@ -91,15 +106,7 @@ def loadRandomDynamicNets(boldPath, atlasobj, totalNum = 0, scanList = None):
 		   If not, continue load one more dynamic net.
 	"""
 	retList = []
-	# read in scan list
-	if type(scanList) is str:
-		# read in scanList
-		with open(scanList) as f:
-			scanList = []
-			for line in f.readlines():
-				scanList.append(line.strip())
-	elif type(scanList) is list:
-		pass
+	scanList = process_subject_list(scanList)
 	ret = {}
 	scanName = 'None'
 	lastScanName = 'Unknown'
@@ -148,19 +155,43 @@ def loadRandomDynamicNets(boldPath, atlasobj, totalNum = 0, scanList = None):
 			retList += currentList
 	return retList
 
+def loadAllDynamicNets(boldPath, atlasobj, dynamicDict, timeCase = 1, subjectList = None):
+	"""
+	This function loads all dynamic networks from the given subjects in the list
+	Only data from timeCase session are loaded
+	DynamicDict contains: 'windowLength' and 'stepSize', specified as integers
+	"""
+	subjectList = process_subject_list(subjectList)
+	ret = []
+	subjectName = 'None'
+	lastSubjectName = 'Unknown'
+	for scan in sorted(os.listdir(boldPath)):
+		if scan.find('_') != -1:
+			subjectName = scan[:scan.find('_')]
+		else:
+			subjectName = scan
+		if subjectName != lastSubjectName:
+			occurrenceCounter = 0
+			lastSubjectName = subjectName
+		occurrenceCounter += 1
+		if subjectList is not None and subjectName not in subjectList:
+			continue
+		if occurrenceCounter == timeCase:
+			try:
+				for file in sorted(os.listdir(os.path.join(boldPath, scan, atlasobj.name, 'bold_net'))):
+					if file.find('-') != -1:
+						ret.append(netattr.Net(loadsave.load_csvmat(os.path.join(boldPath, scan, atlasobj.name, 'bold_net', file)), atlasobj))
+			except FileNotFoundError as e:
+				print('File %s not found.' % os.path.join(boldPath, scan, atlasobj.name, 'bold_net', 'corrcoef.csv'))
+				print(e)
+	return ret
+
 def loadAllNets(boldPath, atlasobj, scanList = None):
 	"""
 	This script is used to load all scans.
 	The given list contains scan names.
 	"""
-	if type(scanList) is str:
-		# read in scanList
-		with open(scanList) as f:
-			scanList = []
-			for line in f.readlines():
-				scanList.append(line.strip())
-	elif type(scanList) is list:
-		pass
+	scanList = process_subject_list(scanList)
 	ret = []
 	if scanList is None:
 		scanList = sorted(os.listdir(boldPath))
